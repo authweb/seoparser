@@ -20,3 +20,6 @@ Run application:
 ```bash
 python -m seoparser
 ```
+
+## License
+This project is licensed under the [MIT License](LICENSE).
