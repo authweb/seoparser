@@ -97,6 +97,10 @@ class MainWindow(QWidget):
     def log_message(self, msg: str):
         self.log.appendPlainText(msg)
 
+    def on_progress(self, current: int, total: int):
+        percent = int(current / total * 100) if total else 0
+        self.progress.setValue(percent)
+
     def export_results(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save", "results.csv", "CSV (*.csv)")
         if not path:
@@ -108,7 +112,7 @@ class MainWindow(QWidget):
         url = self.url_edit.text().strip()
         if not url:
             return
-        self.crawler = SEOCrawler(url)
+        self.crawler = SEOCrawler(url, progress_callback=self.on_progress)
         self.table_model._data = self.crawler.results
         self.table_model.update()
         self.progress.setValue(0)

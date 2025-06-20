@@ -3,7 +3,7 @@ import csv
 import json
 import os
 from dataclasses import dataclass, asdict
-from typing import List, Set, Optional
+from typing import Callable, List, Set, Optional
 from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
@@ -25,9 +25,18 @@ class PageResult:
 
 
 class SEOCrawler:
-    def __init__(self, base_url: str, *, max_depth: int = 2, max_pages: int = 100,
-                 include_subdomains: bool = False, rate_limit: float = 1.0,
-                 autosave_interval: int = 50, session: Optional[aiohttp.ClientSession] = None):
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        max_depth: int = 2,
+        max_pages: int = 100,
+        include_subdomains: bool = False,
+        rate_limit: float = 1.0,
+        autosave_interval: int = 50,
+        session: Optional[aiohttp.ClientSession] = None,
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+    ):
         self.base_url = base_url.rstrip('/')
         self.parsed_base = urlparse(self.base_url)
         self.max_depth = max_depth
@@ -42,6 +51,7 @@ class SEOCrawler:
         self.session = session
         self.robot_parser = RobotFileParser()
         self.last_request = 0.0
+        self.progress_callback = progress_callback
 
     async def initialize(self):
         await self.load_robots()
@@ -108,6 +118,8 @@ class SEOCrawler:
             if status != 200:
                 self.errors.append(page)
             self.results.append(page)
+            if self.progress_callback:
+                self.progress_callback(len(self.results), self.max_pages)
             if len(self.results) % self.autosave_interval == 0:
                 self.autosave()
             if status == 200 and depth < self.max_depth:
