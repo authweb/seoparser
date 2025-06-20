@@ -44,37 +44,37 @@ class SEOCrawler:
         self.last_request = 0.0
 
     async def initialize(self):
-        await self.load_robots()
-        await self.load_sitemap()
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+        await self.load_robots(self.session)
+        await self.load_sitemap(self.session)
         await self.to_visit.put((self.base_url, 0))
 
-    async def load_robots(self):
+    async def load_robots(self, session: aiohttp.ClientSession):
         robots_url = urljoin(self.base_url, '/robots.txt')
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(robots_url) as resp:
-                    if resp.status == 200:
-                        text = await resp.text()
-                        self.robot_parser.parse(text.splitlines())
-                    else:
-                        self.robot_parser = RobotFileParser()
-                        self.robot_parser.parse([])
+            async with session.get(robots_url) as resp:
+                if resp.status == 200:
+                    text = await resp.text()
+                    self.robot_parser.parse(text.splitlines())
+                else:
+                    self.robot_parser = RobotFileParser()
+                    self.robot_parser.parse([])
         except Exception as exc:
             self.robot_parser = RobotFileParser()
             self.robot_parser.parse([])
 
-    async def load_sitemap(self):
+    async def load_sitemap(self, session: aiohttp.ClientSession):
         sitemap_url = urljoin(self.base_url, '/sitemap.xml')
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(sitemap_url) as resp:
-                    if resp.status == 200:
-                        text = await resp.text()
-                        from xml.etree import ElementTree as ET
-                        root = ET.fromstring(text)
-                        for loc in root.iterfind('.//{*}loc'):
-                            url = loc.text.strip()
-                            await self.to_visit.put((url, 0))
+            async with session.get(sitemap_url) as resp:
+                if resp.status == 200:
+                    text = await resp.text()
+                    from xml.etree import ElementTree as ET
+                    root = ET.fromstring(text)
+                    for loc in root.iterfind('.//{*}loc'):
+                        url = loc.text.strip()
+                        await self.to_visit.put((url, 0))
         except Exception:
             pass
 
@@ -86,8 +86,6 @@ class SEOCrawler:
         return self.robot_parser.can_fetch('*', url)
 
     async def crawl(self):
-        if not self.session:
-            self.session = aiohttp.ClientSession()
         await self.initialize()
         while not self.to_visit.empty() and len(self.results) < self.max_pages:
             url, depth = await self.to_visit.get()
@@ -114,7 +112,8 @@ class SEOCrawler:
                 for link in self.extract_links(text, url):
                     if link not in self.visited:
                         await self.to_visit.put((link, depth + 1))
-        await self.session.close()
+        if self.session and not self.session.closed:
+            await self.session.close()
 
     async def rate_limit_wait(self):
         elapsed = asyncio.get_event_loop().time() - self.last_request
