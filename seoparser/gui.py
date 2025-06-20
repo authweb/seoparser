@@ -5,7 +5,7 @@ from functools import partial
 from PyQt5.QtCore import Qt, QAbstractTableModel, QModelIndex, QSortFilterProxyModel
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QProgressBar, QPlainTextEdit, QTableView, QFileDialog, QLabel
+    QProgressBar, QPlainTextEdit, QTableView, QFileDialog, QLabel, QSpinBox
 )
 
 from .crawler import SEOCrawler, PageResult
@@ -66,6 +66,14 @@ class MainWindow(QWidget):
         url_layout.addWidget(self.start_btn)
         layout.addLayout(url_layout)
 
+        autosave_layout = QHBoxLayout()
+        autosave_layout.addWidget(QLabel("Autosave Interval:"))
+        self.autosave_spin = QSpinBox()
+        self.autosave_spin.setRange(1, 10000)
+        self.autosave_spin.setValue(50)
+        autosave_layout.addWidget(self.autosave_spin)
+        layout.addLayout(autosave_layout)
+
         self.progress = QProgressBar()
         layout.addWidget(self.progress)
 
@@ -108,7 +116,8 @@ class MainWindow(QWidget):
         url = self.url_edit.text().strip()
         if not url:
             return
-        self.crawler = SEOCrawler(url)
+        autosave = self.autosave_spin.value()
+        self.crawler = SEOCrawler(url, autosave_interval=autosave)
         self.table_model._data = self.crawler.results
         self.table_model.update()
         self.progress.setValue(0)
